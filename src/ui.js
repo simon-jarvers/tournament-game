@@ -12,7 +12,13 @@ import {
   remainingMatches,
   roundName,
 } from './bracket.js';
-import { buildEntries, bracketShape, parseEntryLines, peopleFor } from './setup.js';
+import {
+  buildEntries,
+  bracketShape,
+  parseEntryLines,
+  peopleFor,
+  exampleFor,
+} from './setup.js';
 import { championsFor, applyStandIn, randomStandIn, creditFor } from './owners.js';
 
 const $ = (id) => document.getElementById(id);
@@ -74,7 +80,7 @@ let lastRoundLabel = '';
 
 const OWNER_NOTES = {
   none: 'Entries run without owners.',
-  entry: 'Add an owner after a comma: “Broccoli, Ada”.',
+  entry: 'Add an owner after a comma: “Broccoli 🥦, Bibi”.',
   pool: 'Entries are shared out randomly and evenly.',
 };
 
@@ -113,6 +119,8 @@ function updateSetupUi() {
   el.ownerNote.textContent = OWNER_NOTES[mode];
   el.championNote.textContent = CHAMPION_NOTES[championMode()];
   el.timerSetup.hidden = !el.timerOn.checked;
+  // The placeholder shows the format the chosen mode expects.
+  el.entries.placeholder = exampleFor(mode).entriesText.split('\n').slice(0, 4).join('\n');
 
   const shape = bracketShape(parseEntryLines(el.entries.value, mode === 'entry').length);
   if (!shape) {
@@ -183,14 +191,10 @@ el.timerSeconds.addEventListener('input', () => {
 });
 
 el.demoFill.addEventListener('click', () => {
-  el.category.value = 'Best Vegetable';
-  el.entries.value = [
-    'Broccoli', 'Sweet potato', 'Fennel', 'Leek', 'Aubergine', 'Beetroot',
-    'Chard', 'Cauliflower', 'Asparagus', 'Sugar snap peas', 'Pumpkin',
-    'Brussels sprout', 'Radicchio', 'Corn on the cob',
-  ].join('\n');
-  el.form.querySelector('input[value="pool"]').checked = true;
-  el.people.value = 'Ada, Mo, Yusuf, Kit';
+  const example = exampleFor(ownerMode());
+  el.category.value = example.category;
+  el.entries.value = example.entriesText;
+  el.people.value = example.peopleText;
   updateSetupUi();
 });
 

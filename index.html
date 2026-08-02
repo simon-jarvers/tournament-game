@@ -27,7 +27,7 @@
     <div class="field">
       <label for="entries">Entries <span class="hint">one per line</span></label>
       <textarea id="entries" name="entries" rows="8" spellcheck="false"
-        placeholder="Broccoli&#10;Sweet potato&#10;Fennel&#10;Leek"
+        placeholder="Broccoli 🥦&#10;Tomato 🍅&#10;Potato 🥔&#10;Carrot 🥕"
         aria-describedby="owner-note bracket-preview"></textarea>
       <p class="preview" id="bracket-preview">Add at least 2 entries.</p>
     </div>
@@ -43,7 +43,7 @@
       <div class="field field--nested" id="people-field" hidden>
         <label for="people">People</label>
         <textarea id="people" name="people" rows="3" spellcheck="false"
-          placeholder="Ada, Mo, Yusuf, Kit"></textarea>
+          placeholder="Bibi, Pauli, Marli, Leila"></textarea>
       </div>
 
       <div class="field field--nested" id="champion-field" hidden>
@@ -82,18 +82,22 @@
 <!-- ───────────────────────────── MATCH ───────────────────────────── -->
 <section class="screen screen--match" id="screen-match">
   <header class="matchbar">
-    <span class="chip chip--round" id="round-label">Round</span>
-    <span class="chip chip--category" id="category-label" hidden></span>
-    <span class="chip chip--quiet" id="progress-label">1/1</span>
-    <button type="button" class="chip chip--timer" id="timer-chip" hidden
-      title="Tap to start or pause the pitch timer">
-      <span class="chip__icon" aria-hidden="true">⏱</span>
-      <span id="timer-digits">0:20</span>
-    </button>
-    <button type="button" class="chip chip--btn chip--icon" id="timer-reset" hidden
-      title="Reset the timer" aria-label="Reset timer">↺</button>
-    <button type="button" class="chip chip--btn chip--icon" id="quit-btn"
-      title="Abandon and set up a new game" aria-label="Quit">✕</button>
+    <div class="matchbar__row">
+      <span class="chip chip--round" id="round-label">Round</span>
+      <span class="chip chip--category" id="category-label" hidden></span>
+    </div>
+    <div class="matchbar__row matchbar__row--controls">
+      <span class="chip chip--quiet" id="progress-label">1/1</span>
+      <button type="button" class="chip chip--timer" id="timer-chip" hidden
+        title="Tap to start or pause the pitch timer">
+        <span class="chip__icon" aria-hidden="true">⏱</span>
+        <span id="timer-digits">0:20</span>
+      </button>
+      <button type="button" class="chip chip--btn chip--icon" id="timer-reset" hidden
+        title="Reset the timer" aria-label="Reset timer">↺</button>
+      <button type="button" class="chip chip--btn chip--icon" id="quit-btn"
+        title="Abandon and set up a new game" aria-label="Quit">✕</button>
+    </div>
   </header>
 
   <div class="standin" id="standin" hidden>

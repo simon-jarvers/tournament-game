@@ -13,7 +13,13 @@ import {
   getMatch,
   entryById,
 } from '../src/bracket.js';
-import { parseEntryLines, distributeOwners, bracketShape, buildEntries, peopleFor } from '../src/setup.js';
+import {
+  parseEntryLines,
+  distributeOwners,
+  bracketShape,
+  buildEntries,
+  exampleFor,
+} from '../src/setup.js';
 import { championsFor, applyStandIn, randomStandIn, creditFor } from '../src/owners.js';
 
 const makeEntries = (n) =>
@@ -383,6 +389,39 @@ test('a people pool splits entries as evenly as possible', () => {
   for (const entry of owned) counts.set(entry.owner, (counts.get(entry.owner) || 0) + 1);
   assert.equal(counts.size, 3);
   assert.deepEqual([...counts.values()].sort(), [2, 2, 3]);
+});
+
+test('the example fills to match the owner mode on screen', () => {
+  const perEntry = exampleFor('entry');
+  assert.equal(perEntry.peopleText, '');
+  assert.equal(perEntry.entriesText.split('\n')[0], 'Broccoli 🥦, Bibi');
+  const owned = buildEntries({ entriesText: perEntry.entriesText, ownerMode: 'entry' });
+  assert.equal(owned.length, 8);
+  assert.deepEqual(owned.slice(0, 4), [
+    { text: 'Broccoli 🥦', owner: 'Bibi' },
+    { text: 'Tomato 🍅', owner: 'Pauli' },
+    { text: 'Potato 🥔', owner: 'Marli' },
+    { text: 'Carrot 🥕', owner: 'Leila' },
+  ]);
+
+  const pool = exampleFor('pool');
+  assert.equal(pool.peopleText, 'Bibi, Pauli, Marli, Leila');
+  assert.equal(pool.entriesText.split('\n')[0], 'Broccoli 🥦');
+  const shared = buildEntries(
+    { entriesText: pool.entriesText, ownerMode: 'pool', peopleText: pool.peopleText },
+    seeded(2)
+  );
+  const counts = new Map();
+  for (const entry of shared) counts.set(entry.owner, (counts.get(entry.owner) || 0) + 1);
+  assert.deepEqual([...counts.values()], [2, 2, 2, 2], 'two entries each');
+
+  const none = exampleFor('none');
+  assert.equal(none.peopleText, '');
+  assert.equal(none.entriesText.includes(','), false, 'no owners inline');
+  assert.deepEqual(
+    buildEntries({ entriesText: none.entriesText, ownerMode: 'none' })[0],
+    { text: 'Broccoli 🥦', owner: '' }
+  );
 });
 
 test('bracket shape drives the setup preview', () => {

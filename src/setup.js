@@ -71,6 +71,38 @@ export function buildEntries({ entriesText, ownerMode, peopleText }, rng = Math.
   return parsed;
 }
 
+/** The worked example behind the “Fill an example” button. */
+export const EXAMPLE = {
+  category: 'Best Vegetable',
+  entries: [
+    ['Broccoli 🥦', 'Bibi'],
+    ['Tomato 🍅', 'Pauli'],
+    ['Potato 🥔', 'Marli'],
+    ['Carrot 🥕', 'Leila'],
+    ['Aubergine 🍆', 'Bibi'],
+    ['Cucumber 🥒', 'Pauli'],
+    ['Corn 🌽', 'Marli'],
+    ['Pepper 🫑', 'Leila'],
+  ],
+};
+
+/**
+ * Fill the example to match the owner mode on screen: owners inline for
+ * per-entry, a people list for a pool, and neither when owners are off.
+ */
+export function exampleFor(ownerMode) {
+  const withOwners = ownerMode === 'entry';
+  return {
+    category: EXAMPLE.category,
+    entriesText: EXAMPLE.entries
+      .map(([text, owner]) => (withOwners ? `${text}, ${owner}` : text))
+      .join('\n'),
+    peopleText: ownerMode === 'pool'
+      ? [...new Set(EXAMPLE.entries.map(([, owner]) => owner))].join(', ')
+      : '',
+  };
+}
+
 /**
  * Everyone who can be called on to argue: the whole pool in people-pool mode
  * (even someone who drew no entries), otherwise whoever owns an entry.
