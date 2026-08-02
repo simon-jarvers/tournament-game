@@ -1,0 +1,12 @@
+{
+  "name": "bracket-battle",
+  "version": "1.0.0",
+  "description": "A browser party game where anything can compete: seed a knockout bracket, pitch your entry, tap the winner.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "start": "npx --yes http-server -p 8080 -c-1"
+  },
+  "license": "MIT"
+}
