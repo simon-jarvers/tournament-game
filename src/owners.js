@@ -78,25 +78,25 @@ function repairClashes(pairs, rng) {
   }
 }
 
-function loadFor(state, person) {
-  return state.roundLoad?.counts?.[person] || 0;
+/** How many matches this person has argued so far, all rounds counted. */
+function turnsTaken(state, person) {
+  return state.tally?.[person] || 0;
 }
 
-function noteChampion(state, entry, person, round) {
+function noteChampion(state, entry, person) {
   if (!person) return;
-  if (!state.roundLoad || state.roundLoad.round !== round) {
-    state.roundLoad = { round, counts: {} };
-  }
-  state.roundLoad.counts[person] = loadFor(state, person) + 1;
+  if (!state.tally) state.tally = {};
+  state.tally[person] = turnsTaken(state, person) + 1;
   entry.ownerHistory.push(person);
 }
 
 /**
- * Pick a champion for one entry. Prefers someone who has never had this entry
- * and is carrying the least work this round; when everyone has already had it,
- * falls back to whoever had it longest ago.
+ * Pick a champion for one entry. Prefers someone who has never had this entry,
+ * and among those whoever has argued fewest matches overall — so with more
+ * people than entries, everyone gets a turn before anyone gets a second.
+ * When everyone has already had this entry, falls back to the least recent.
  */
-function pickChampion(state, entry, taken, round, rng) {
+function pickChampion(state, entry, taken, rng) {
   const people = state.people.filter((person) => person !== taken);
   if (!people.length) return state.people[0] || '';
 
@@ -107,8 +107,8 @@ function pickChampion(state, entry, taken, round, rng) {
 
   const fresh = people.filter((person) => !entry.ownerHistory.includes(person));
   if (fresh.length) {
-    const lightest = Math.min(...fresh.map((person) => loadFor(state, person)));
-    return pickOne(fresh.filter((person) => loadFor(state, person) === lightest), rng);
+    const fewest = Math.min(...fresh.map((person) => turnsTaken(state, person)));
+    return pickOne(fresh.filter((person) => turnsTaken(state, person) === fewest), rng);
   }
 
   // Everyone has argued for this entry already: reuse the least recent, but
@@ -117,7 +117,7 @@ function pickChampion(state, entry, taken, round, rng) {
   const stale = people.filter((person) => person !== lastUp);
   const ranked = (stale.length ? stale : people)
     .map((person) => ({ person, seen: entry.ownerHistory.lastIndexOf(person) }))
-    .sort((a, b) => a.seen - b.seen);
+    .sort((a, b) => a.seen - b.seen || turnsTaken(state, a.person) - turnsTaken(state, b.person));
   return ranked[0].person;
 }
 
@@ -150,7 +150,7 @@ export function championsFor(state, match, entryOf, rng = Math.random) {
     return { owners: settle(state, match, owners) };
   }
 
-  return { owners: settle(state, match, assignRotating(state, entries, match.round, rng)) };
+  return { owners: settle(state, match, assignRotating(state, entries, rng)) };
 }
 
 /** How unwelcome a champion is for this entry: a repeat, or worse, a rerun. */
@@ -167,13 +167,13 @@ function repeatCost(entry, person) {
  * keep the pairing with the fewest repeats. With two people this is what lets
  * an entry alternate champions instead of getting the same one twice running.
  */
-function assignRotating(state, entries, round, rng) {
+function assignRotating(state, entries, rng) {
   let best = null;
   for (const first of [0, 1]) {
     const second = 1 - first;
     const owners = [];
-    owners[first] = pickChampion(state, entries[first], null, round, rng);
-    owners[second] = pickChampion(state, entries[second], owners[first], round, rng);
+    owners[first] = pickChampion(state, entries[first], null, rng);
+    owners[second] = pickChampion(state, entries[second], owners[first], rng);
     const cost = repeatCost(entries[0], owners[0]) + repeatCost(entries[1], owners[1]);
     if (!best || cost < best.cost) best = { owners, cost };
     if (cost === 0) break;
@@ -185,7 +185,7 @@ function settle(state, match, owners) {
   match.owners = owners;
   match.slots.forEach((id, slot) => {
     if (!id || !owners[slot]) return;
-    noteChampion(state, state.entries.find((e) => e.id === id), owners[slot], match.round);
+    noteChampion(state, state.entries.find((e) => e.id === id), owners[slot]);
   });
   return match.owners;
 }

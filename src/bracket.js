@@ -121,7 +121,7 @@ export function createTournament(config, rng = Math.random) {
     timer: config.timer || { enabled: true, seconds: 20 },
     champions: config.champions === 'rotate' ? 'rotate' : FIXED,
     people: config.people && config.people.length ? [...config.people] : distinctPeople(entries),
-    roundLoad: null,
+    tally: {}, // how many matches each person has argued
     entries,
     size,
     byes,

@@ -24,6 +24,10 @@
 
 * { box-sizing: border-box; }
 
+/* Layout rules below set `display` on several elements, which would otherwise
+   beat the browser's default for [hidden]. */
+[hidden] { display: none !important; }
+
 html, body { height: 100%; }
 
 body {
@@ -197,15 +201,22 @@ input:focus-visible, textarea:focus-visible, .btn:focus-visible,
 #demo-fill { width: 100%; margin-top: 12px; }
 
 /* ---------- match screen ---------- */
-/* information rows: what is being played, then the controls */
+/* information rows: what is being played, then the controls.
+   Quit keeps the top-right corner at every width. */
 .matchbar {
-  display: flex;
+  display: grid;
   flex: 0 0 auto;
-  flex-direction: column;
   gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "info quit"
+    "controls controls";
   margin-bottom: clamp(10px, 2vw, 18px);
 }
 .matchbar__row { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.matchbar__row--info { grid-area: info; }
+.matchbar__row--controls { grid-area: controls; }
+.chip--quit { grid-area: quit; justify-self: end; align-self: start; }
 
 .chip {
   flex: none;
@@ -669,7 +680,11 @@ kbd {
 @media (min-width: 760px) {
   .arena { gap: clamp(52px, 6vw, 78px); }
   /* room enough for one line again */
-  .matchbar { flex-direction: row; justify-content: space-between; align-items: center; }
+  .matchbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "info controls quit";
+    align-items: center;
+  }
   .endgame { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kbd-hint { display: inline; }
   #demo-fill { width: auto; }

@@ -158,6 +158,41 @@ test('rotating champions: a new champion each round, never repeating an entry', 
   assert.equal(new Set(deepest).size, deepest.length);
 });
 
+test('rotating champions: with more people than entries, everyone goes once first', () => {
+  // Four entries, eight people: 4 matches × 2 sides = exactly one turn each.
+  const people = ['Bibi', 'Pauli', 'Marli', 'Leila', 'Ada', 'Mo', 'Yusuf', 'Kit'];
+  const entries = [
+    { text: 'Broccoli', owner: 'Bibi' },
+    { text: 'Tomato', owner: 'Pauli' },
+    { text: 'Potato', owner: 'Marli' },
+    { text: 'Carrot', owner: 'Leila' },
+  ];
+  for (let seed = 1; seed <= 25; seed++) {
+    const state = createTournament({ entries, people, champions: 'rotate' }, seeded(seed));
+    const log = playWithChampions(state, seeded(seed + 100));
+    const turns = log.flatMap((m) => m.owners);
+    assert.equal(turns.length, 8, `seed ${seed}: four matches, two sides each`);
+    assert.deepEqual(
+      [...turns].sort(),
+      [...people].sort(),
+      `seed ${seed}: every person argued exactly once`
+    );
+  }
+});
+
+test('rotating champions: turns stay level when people outnumber slots', () => {
+  // Six people over three matches: two never get a turn, nobody gets two.
+  const people = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const entries = [
+    { text: 'One', owner: 'A' }, { text: 'Two', owner: 'B' }, { text: 'Three', owner: 'C' },
+  ];
+  const state = createTournament({ entries, people, champions: 'rotate' }, seeded(77));
+  const turns = playWithChampions(state, seeded(78)).flatMap((m) => m.owners);
+  const counts = new Map();
+  for (const person of turns) counts.set(person, (counts.get(person) || 0) + 1);
+  assert.ok(Math.max(...counts.values()) === 1, 'nobody argued twice while others waited');
+});
+
 test('rotating champions: an entry starts with the person it was assigned to', () => {
   const people = ['Ada', 'Mo'];
   const entries = [

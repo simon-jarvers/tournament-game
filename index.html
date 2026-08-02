@@ -82,7 +82,7 @@
 <!-- ───────────────────────────── MATCH ───────────────────────────── -->
 <section class="screen screen--match" id="screen-match">
   <header class="matchbar">
-    <div class="matchbar__row">
+    <div class="matchbar__row matchbar__row--info">
       <span class="chip chip--round" id="round-label">Round</span>
       <span class="chip chip--category" id="category-label" hidden></span>
     </div>
@@ -95,9 +95,9 @@
       </button>
       <button type="button" class="chip chip--btn chip--icon" id="timer-reset" hidden
         title="Reset the timer" aria-label="Reset timer">↺</button>
-      <button type="button" class="chip chip--btn chip--icon" id="quit-btn"
-        title="Abandon and set up a new game" aria-label="Quit">✕</button>
     </div>
+    <button type="button" class="chip chip--btn chip--icon chip--quit" id="quit-btn"
+      title="Abandon and set up a new game" aria-label="Quit">✕</button>
   </header>
 
   <div class="standin" id="standin" hidden>
