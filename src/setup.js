@@ -2,20 +2,36 @@
 
 import { shuffle, nextPowerOfTwo } from './bracket.js';
 
-const OWNER_SPLIT = /\s*(?:\||\s@\s|\s--\s|\s—\s)\s*/;
+// A comma is the separator people actually reach for on a phone keyboard; the
+// rest are kept as aliases so older habits still work.
+const OWNER_SPLIT = /\s*(?:,|\||\s@\s|\s--\s|\s—\s)\s*/g;
 
-/** One entry per line. `Item | Owner` (or `Item @ Owner`) carries an owner. */
-export function parseEntryLines(raw) {
+/**
+ * Split `Broccoli, Ada` into entry and owner on the *last* separator, so entry
+ * text may itself contain commas: `The Good, the Bad and the Ugly, Ada`.
+ */
+function splitOwner(line) {
+  let cut = null;
+  for (const match of line.matchAll(OWNER_SPLIT)) {
+    cut = { at: match.index, length: match[0].length };
+  }
+  if (!cut) return { text: line, owner: '' };
+  return {
+    text: line.slice(0, cut.at).trim(),
+    owner: line.slice(cut.at + cut.length).trim(),
+  };
+}
+
+/**
+ * One entry per line. Owners are only pulled out of the line when asked for —
+ * otherwise a comma is just part of the entry.
+ */
+export function parseEntryLines(raw, splitOwners = false) {
   return String(raw || '')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => {
-      const parts = line.split(OWNER_SPLIT);
-      const text = (parts[0] || '').trim();
-      const owner = (parts[1] || '').trim();
-      return { text, owner };
-    })
+    .map((line) => (splitOwners ? splitOwner(line) : { text: line, owner: '' }))
     .filter((entry) => entry.text.length > 0);
 }
 
@@ -46,12 +62,11 @@ export function distributeOwners(entries, people, rng = Math.random) {
  * Build the entry list for a given owner mode: 'none', 'entry' or 'pool'.
  */
 export function buildEntries({ entriesText, ownerMode, peopleText }, rng = Math.random) {
-  const parsed = parseEntryLines(entriesText);
+  const parsed = parseEntryLines(entriesText, ownerMode === 'entry');
   if (ownerMode === 'pool') {
     return distributeOwners(parsed, parsePeople(peopleText), rng);
   }
-  if (ownerMode === 'entry') return parsed;
-  return parsed.map((entry) => ({ ...entry, owner: '' }));
+  return parsed;
 }
 
 /** Shape of the bracket a given entry count will produce, for the preview line. */

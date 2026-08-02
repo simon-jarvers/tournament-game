@@ -16,8 +16,13 @@ backend, no network — the game lives in memory for the session.
    is enforced.
 3. **Podium** — first, second and third, with the full bracket showing who beat whom.
 
-Owners work two ways: write them per entry (`Broccoli | Ada`, or `@` / `—` as separators),
-or hand the app a pool of people and it shares the entries out randomly and evenly.
+Owners work two ways: write them per entry after a comma (`Broccoli, Ada` — `|`, `@` and
+`—` also work), or hand the app a pool of people and it shares the entries out randomly
+and evenly. The split takes the *last* comma on the line, so entry text can contain one:
+`The Good, the Bad and the Ugly, Ada`. With owners off, the whole line is the entry.
+
+The bracket sits under the current match as you play, so the room can see where the
+tournament stands without leaving the battle.
 
 Keyboard on the match screen: <kbd>1</kbd> / <kbd>2</kbd> (or the arrow keys) pick a
 winner, <kbd>Space</kbd> starts and pauses the timer.

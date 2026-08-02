@@ -12,7 +12,7 @@ import {
   roundName,
   getMatch,
 } from '../src/bracket.js';
-import { parseEntryLines, distributeOwners, bracketShape } from '../src/setup.js';
+import { parseEntryLines, distributeOwners, bracketShape, buildEntries } from '../src/setup.js';
 
 const makeEntries = (n) =>
   Array.from({ length: n }, (_, i) => ({ text: `Entry ${i + 1}`, owner: `P${i % 3}` }));
@@ -142,13 +142,46 @@ test('fewer than two entries is rejected', () => {
   assert.throws(() => createTournament({ entries: makeEntries(1) }), /at least 2/);
 });
 
-test('entry lines parse text and optional owner', () => {
-  const parsed = parseEntryLines('Broccoli | Ada\n  Leek  \n\nFennel @ Mo\nChard — Kit');
+test('entry lines split on a comma when owners are asked for', () => {
+  const parsed = parseEntryLines('Broccoli, Ada\n  Leek  \n\nFennel | Mo\nChard @ Kit', true);
   assert.deepEqual(parsed, [
     { text: 'Broccoli', owner: 'Ada' },
     { text: 'Leek', owner: '' },
     { text: 'Fennel', owner: 'Mo' },
     { text: 'Chard', owner: 'Kit' },
+  ]);
+});
+
+test('entry text may itself contain commas — the owner is after the last one', () => {
+  assert.deepEqual(parseEntryLines('The Good, the Bad and the Ugly, Ada', true), [
+    { text: 'The Good, the Bad and the Ugly', owner: 'Ada' },
+  ]);
+});
+
+test('without per-entry owners a comma is just part of the entry', () => {
+  assert.deepEqual(parseEntryLines('The Good, the Bad and the Ugly\nBroccoli', false), [
+    { text: 'The Good, the Bad and the Ugly', owner: '' },
+    { text: 'Broccoli', owner: '' },
+  ]);
+});
+
+test('owner modes decide whether entries are split', () => {
+  const entriesText = 'Corn, buttered, Ada\nLeek, Mo';
+  assert.deepEqual(buildEntries({ entriesText, ownerMode: 'entry' }), [
+    { text: 'Corn, buttered', owner: 'Ada' },
+    { text: 'Leek', owner: 'Mo' },
+  ]);
+  assert.deepEqual(buildEntries({ entriesText, ownerMode: 'none' }), [
+    { text: 'Corn, buttered, Ada', owner: '' },
+    { text: 'Leek, Mo', owner: '' },
+  ]);
+  const pooled = buildEntries(
+    { entriesText, ownerMode: 'pool', peopleText: 'Kit' },
+    seeded(2)
+  );
+  assert.deepEqual(pooled, [
+    { text: 'Corn, buttered, Ada', owner: 'Kit' },
+    { text: 'Leek, Mo', owner: 'Kit' },
   ]);
 });
 

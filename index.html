@@ -27,7 +27,8 @@
     <div class="field">
       <label for="entries">Entries <span class="hint">one per line</span></label>
       <textarea id="entries" name="entries" rows="8" spellcheck="false"
-        placeholder="Broccoli&#10;Sweet potato&#10;Fennel&#10;Leek"></textarea>
+        placeholder="Broccoli&#10;Sweet potato&#10;Fennel&#10;Leek"
+        aria-describedby="owner-note bracket-preview"></textarea>
       <p class="preview" id="bracket-preview">Add at least 2 entries.</p>
     </div>
 
@@ -106,10 +107,21 @@
   </div>
 
   <p class="footnote">Tap the card that wins. <span class="kbd-hint">Keys: <kbd>1</kbd>/<kbd>2</kbd> pick · <kbd>Space</kbd> timer</span></p>
+
+  <section class="livebracket" id="livebracket" data-open="true">
+    <div class="livebracket__head">
+      <h2 class="livebracket__title">The bracket so far</h2>
+      <button type="button" class="chip chip--btn" id="live-toggle" aria-expanded="true">Hide</button>
+    </div>
+    <div class="bracket-scroll bracket-scroll--live" id="live-scroll">
+      <div class="bracket bracket--mini" id="live-bracket"></div>
+    </div>
+  </section>
 </section>
 
 <!-- ───────────────────────────── PODIUM ───────────────────────────── -->
 <section class="screen screen--podium" id="screen-podium">
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
   <header class="masthead masthead--tight">
     <h1 class="logo logo--small">Bracket<span>Battle</span></h1>
     <p class="tagline" id="podium-category">The results are in.</p>
