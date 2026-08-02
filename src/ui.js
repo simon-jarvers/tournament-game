@@ -1,5 +1,6 @@
 // Screen wiring: reads the setup form, drives the match loop, draws the podium.
-// All tournament rules live in bracket.js — this file only renders and listens.
+// Tournament and owner rules live in bracket.js / owners.js — this file only
+// renders and listens.
 
 import {
   createTournament,
@@ -11,7 +12,8 @@ import {
   remainingMatches,
   roundName,
 } from './bracket.js';
-import { buildEntries, bracketShape, parseEntryLines } from './setup.js';
+import { buildEntries, bracketShape, parseEntryLines, peopleFor } from './setup.js';
+import { championsFor, applyStandIn, randomStandIn, creditFor } from './owners.js';
 
 const $ = (id) => document.getElementById(id);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -25,6 +27,8 @@ const el = {
   ownerNote: $('owner-note'),
   peopleField: $('people-field'),
   people: $('people'),
+  championField: $('champion-field'),
+  championNote: $('champion-note'),
   timerOn: $('timer-on'),
   timerSetup: $('timer-setup'),
   timerSeconds: $('timer-seconds'),
@@ -37,11 +41,14 @@ const el = {
   categoryLabel: $('category-label'),
   progressLabel: $('progress-label'),
   quitBtn: $('quit-btn'),
-  timer: $('timer'),
-  timerFill: $('timer-fill'),
+  timerChip: $('timer-chip'),
   timerDigits: $('timer-digits'),
-  timerToggle: $('timer-toggle'),
   timerReset: $('timer-reset'),
+
+  standin: $('standin'),
+  standinPerson: $('standin-person'),
+  standinEntry: $('standin-entry'),
+  standinOptions: $('standin-options'),
 
   liveWrap: $('livebracket'),
   liveToggle: $('live-toggle'),
@@ -61,13 +68,23 @@ const el = {
 let game = null;
 let lastConfig = null;
 let resolving = false;
+let awaitingStandIn = null; // the clash blocking the current match
 let justAdvancedId = null; // match tile to flash after a winner moves up
 let lastRoundLabel = '';
 
 const OWNER_NOTES = {
   none: 'Entries run without owners.',
   entry: 'Add an owner after a comma: “Broccoli, Ada”.',
-  pool: 'Everyone champions a share of the entries.',
+  pool: 'Entries are shared out randomly and evenly.',
+};
+
+const CHAMPION_NOTES = {
+  fixed:
+    'The owner argues for their entry all tournament. Nobody has to argue against themselves — ' +
+    'the draw avoids it, and a stand-in steps in when the bracket forces it.',
+  rotate:
+    'Every match gets a fresh champion: nobody argues the same entry twice while someone else ' +
+    'is free, and never both sides of a match.',
 };
 
 /** Restart a CSS animation that may already have run on this element. */
@@ -84,10 +101,17 @@ function ownerMode() {
   return picked ? picked.value : 'none';
 }
 
+function championMode() {
+  const picked = el.form.querySelector('input[name="champions"]:checked');
+  return picked ? picked.value : 'fixed';
+}
+
 function updateSetupUi() {
   const mode = ownerMode();
   el.peopleField.hidden = mode !== 'pool';
+  el.championField.hidden = mode === 'none';
   el.ownerNote.textContent = OWNER_NOTES[mode];
+  el.championNote.textContent = CHAMPION_NOTES[championMode()];
   el.timerSetup.hidden = !el.timerOn.checked;
 
   const shape = bracketShape(parseEntryLines(el.entries.value, mode === 'entry').length);
@@ -113,6 +137,7 @@ function readConfig() {
     entriesText: el.entries.value,
     ownerMode: ownerMode(),
     peopleText: el.people.value,
+    champions: championMode(),
     timer: { enabled: el.timerOn.checked, seconds },
   };
 }
@@ -128,6 +153,8 @@ function startFromConfig(config) {
   game = createTournament({
     category: config.category,
     entries,
+    people: peopleFor(config, entries),
+    champions: config.champions,
     timer: config.timer,
   });
   renderMatch();
@@ -169,6 +196,89 @@ el.demoFill.addEventListener('click', () => {
 
 /* ─────────────────────────── match screen ─────────────────────────── */
 
+/** Shrink an entry's text until it fits its card, so long names stay readable. */
+function fitCardText(card) {
+  const inner = card.querySelector('.card__inner');
+  const text = card.querySelector('.card__text');
+  const owner = card.querySelector('.card__owner');
+  const width = inner.clientWidth;
+  // The text wraps, so height is what actually runs out: measure the rendered
+  // block against the room left beside the owner's name.
+  const room = inner.clientHeight - (owner.offsetHeight || 0) - 8;
+  if (width <= 0 || room <= 0) return;
+
+  // Measure with words kept whole, so the size drops instead of a word
+  // snapping in half; only a word too long even at the smallest size breaks.
+  text.style.overflowWrap = 'normal';
+  let size = Math.min(56, Math.round(width * 0.5));
+  text.style.fontSize = `${size}px`;
+  while (
+    size > 12 &&
+    (text.getBoundingClientRect().height > room || text.scrollWidth > width + 1)
+  ) {
+    size -= 2;
+    text.style.fontSize = `${size}px`;
+  }
+  if (text.scrollWidth > width + 1) text.style.overflowWrap = 'anywhere';
+  return size;
+}
+
+/** Both entries share the smaller size, so neither looks favoured. */
+function fitCards() {
+  const size = Math.min(...el.cards.map(fitCardText));
+  if (!Number.isFinite(size)) return;
+  el.cards.forEach((card) => {
+    card.querySelector('.card__text').style.fontSize = `${size}px`;
+  });
+}
+
+function paintCard(index, entryId, ownerName) {
+  const entry = entryById(game, entryId);
+  const card = el.cards[index];
+  card.classList.remove('is-winner', 'is-loser');
+  card.querySelector('.card__text').textContent = entry ? entry.text : '';
+  card.querySelector('.card__owner').textContent = ownerName || '';
+  card.dataset.entryId = entryId || '';
+}
+
+function showStandInPrompt(match, clash) {
+  awaitingStandIn = { match, clash };
+  el.standin.hidden = false;
+  el.arena.classList.add('is-blocked');
+  el.standinPerson.textContent = clash.person;
+  el.standinEntry.textContent = clash.entry.text;
+
+  el.standinOptions.innerHTML = '';
+  clash.options.forEach((person) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'standin__pick';
+    button.textContent = person;
+    button.addEventListener('click', () => chooseStandIn(person));
+    el.standinOptions.append(button);
+  });
+  const dice = document.createElement('button');
+  dice.type = 'button';
+  dice.className = 'standin__pick standin__pick--random';
+  dice.textContent = '🎲 Random';
+  dice.addEventListener('click', () => chooseStandIn(randomStandIn(clash)));
+  el.standinOptions.append(dice);
+}
+
+function chooseStandIn(person) {
+  if (!awaitingStandIn) return;
+  const { match, clash } = awaitingStandIn;
+  const owners = applyStandIn(game, match, (id) => entryById(game, id), clash.slot, person);
+  awaitingStandIn = null;
+  el.standin.hidden = true;
+  el.arena.classList.remove('is-blocked');
+  owners.forEach((owner, i) => paintCard(i, match.slots[i], owner));
+  fitCards();
+  el.cards[clash.slot].querySelector('.card__owner').classList.add('is-standin');
+  replay(el.cards[clash.slot], 'is-entering');
+  renderBracketInto(el.liveBracket, match.id);
+}
+
 function renderMatch() {
   const match = currentMatch(game);
   if (!match) {
@@ -178,7 +288,10 @@ function renderMatch() {
 
   el.body.dataset.screen = 'match';
   resolving = false;
-  el.arena.classList.remove('is-resolving');
+  awaitingStandIn = null;
+  el.standin.hidden = true;
+  el.arena.classList.remove('is-resolving', 'is-blocked');
+  el.cards.forEach((card) => card.querySelector('.card__owner').classList.remove('is-standin'));
 
   const total = game.played + remainingMatches(game);
   const label = match.thirdPlace ? 'Third place' : roundName(match.round, game.rounds);
@@ -187,19 +300,18 @@ function renderMatch() {
     replay(el.roundLabel, 'is-new');
     lastRoundLabel = label;
   }
-  el.progressLabel.textContent = `Match ${game.played + 1} of ${total}`;
+  el.progressLabel.textContent = `${game.played + 1}/${total}`;
   el.categoryLabel.hidden = !game.category;
   el.categoryLabel.textContent = game.category;
 
+  const result = championsFor(game, match, (id) => entryById(game, id));
+  const owners = result.owners || match.slots.map((id) => (id ? entryById(game, id).owner : ''));
   match.slots.forEach((entryId, i) => {
-    const entry = entryById(game, entryId);
-    const card = el.cards[i];
-    card.classList.remove('is-winner', 'is-loser');
-    card.querySelector('.card__text').textContent = entry ? entry.text : '';
-    card.querySelector('.card__owner').textContent = entry && entry.owner ? entry.owner : '';
-    card.dataset.entryId = entryId || '';
-    replay(card, 'is-entering');
+    paintCard(i, entryId, owners[i]);
+    replay(el.cards[i], 'is-entering');
   });
+  fitCards();
+  if (result.clash) showStandInPrompt(match, result.clash);
 
   renderBracketInto(el.liveBracket, match.id);
   scrollLiveBracketToCurrent();
@@ -207,7 +319,7 @@ function renderMatch() {
 }
 
 function pick(index) {
-  if (resolving) return;
+  if (resolving || awaitingStandIn) return;
   const match = currentMatch(game);
   if (!match) return;
   const winnerId = match.slots[index];
@@ -244,8 +356,10 @@ function backToSetup() {
   stopTimer();
   game = null;
   resolving = false;
+  awaitingStandIn = null;
   justAdvancedId = null;
   lastRoundLabel = '';
+  el.standin.hidden = true;
   el.confetti.innerHTML = '';
   el.body.dataset.screen = 'setup';
 }
@@ -262,6 +376,13 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+let resizeHandle = null;
+window.addEventListener('resize', () => {
+  if (el.body.dataset.screen !== 'match') return;
+  window.clearTimeout(resizeHandle);
+  resizeHandle = window.setTimeout(fitCards, 120);
+});
+
 /* ─────────────────────────── pitch timer ─────────────────────────── */
 
 let timerHandle = null;
@@ -276,8 +397,9 @@ function paintTimer(ms) {
   const clamped = Math.max(0, ms);
   const seconds = Math.ceil(clamped / 1000);
   el.timerDigits.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-  el.timerFill.style.width = `${(clamped / timerLength()) * 100}%`;
-  el.timer.classList.toggle('is-out', clamped === 0);
+  el.timerChip.style.setProperty('--pct', `${(clamped / timerLength()) * 100}%`);
+  el.timerChip.classList.toggle('is-out', clamped === 0);
+  el.timerReset.hidden = !game?.timer?.enabled || clamped === timerLength();
 }
 
 function tick() {
@@ -291,21 +413,20 @@ function stopTimer(ranOut = false) {
     window.clearInterval(timerHandle);
     timerHandle = null;
   }
-  if (!ranOut) remainingMs = Math.max(0, deadline - Date.now());
-  else remainingMs = 0;
-  el.timerToggle.textContent = remainingMs > 0 ? 'Resume' : 'Start';
+  remainingMs = ranOut ? 0 : Math.max(0, deadline - Date.now());
+  el.timerChip.classList.toggle('is-running', false);
 }
 
 function toggleTimer() {
-  if (!game?.timer?.enabled) return;
+  if (!game?.timer?.enabled || awaitingStandIn) return;
   if (timerHandle) {
     stopTimer();
     return;
   }
   if (remainingMs <= 0) remainingMs = timerLength();
   deadline = Date.now() + remainingMs;
-  el.timer.classList.remove('is-out');
-  el.timerToggle.textContent = 'Pause';
+  el.timerChip.classList.remove('is-out');
+  el.timerChip.classList.add('is-running');
   timerHandle = window.setInterval(tick, 100);
   tick();
 }
@@ -313,46 +434,21 @@ function toggleTimer() {
 function resetTimer() {
   stopTimer();
   remainingMs = 0;
-  el.timer.hidden = !game?.timer?.enabled;
-  el.timer.classList.remove('is-out');
-  el.timerToggle.textContent = 'Start';
+  el.timerChip.hidden = !game?.timer?.enabled;
+  el.timerChip.classList.remove('is-out');
   paintTimer(timerLength());
 }
 
-el.timerToggle.addEventListener('click', toggleTimer);
+el.timerChip.addEventListener('click', toggleTimer);
 el.timerReset.addEventListener('click', resetTimer);
 
-/* ─────────────────────────── podium screen ─────────────────────────── */
+/* ─────────────────────────── bracket drawing ─────────────────────────── */
 
-const PLACES = [
-  { rank: '🥇', label: 'Champion', cls: 'place--1' },
-  { rank: '🥈', label: 'Runner-up', cls: 'place--2' },
-  { rank: '🥉', label: 'Third', cls: 'place--3' },
-];
-
-function placeBlock(entry, spec) {
-  const wrap = document.createElement('div');
-  wrap.className = `place ${spec.cls}`;
-  const rank = document.createElement('div');
-  rank.className = 'place__rank';
-  rank.textContent = spec.rank;
-  const body = document.createElement('div');
-  body.className = 'place__body';
-  const label = document.createElement('div');
-  label.className = 'place__label';
-  label.textContent = spec.label;
-  const text = document.createElement('div');
-  text.className = 'place__text';
-  text.textContent = entry.text;
-  body.append(label, text);
-  if (entry.owner) {
-    const owner = document.createElement('div');
-    owner.className = 'place__owner';
-    owner.textContent = entry.owner;
-    body.append(owner);
-  }
-  wrap.append(rank, body);
-  return wrap;
+/** The name shown beside an entry in the bracket, once it is known. */
+function championIn(match, slot, entry) {
+  if (!entry) return '';
+  if (match.owners && match.owners[slot]) return match.owners[slot];
+  return game.champions === 'rotate' ? '' : entry.owner;
 }
 
 function tieSide(match, slot) {
@@ -373,11 +469,12 @@ function tieSide(match, slot) {
   name.textContent = entry.text;
   if (entryId === match.winner) row.classList.add('is-winner');
   row.append(name);
-  if (entry.owner) {
-    const owner = document.createElement('span');
-    owner.className = 'tie__owner';
-    owner.textContent = entry.owner;
-    row.append(owner);
+  const owner = championIn(match, slot, entry);
+  if (owner) {
+    const tag = document.createElement('span');
+    tag.className = 'tie__owner';
+    tag.textContent = owner;
+    row.append(tag);
   }
   return row;
 }
@@ -450,7 +547,42 @@ el.liveToggle.addEventListener('click', () => {
   el.liveToggle.setAttribute('aria-expanded', String(!open));
   el.liveToggle.textContent = open ? 'Show' : 'Hide';
   if (!open) scrollLiveBracketToCurrent();
+  fitCards();
 });
+
+/* ─────────────────────────── podium screen ─────────────────────────── */
+
+const PLACES = [
+  { rank: '🥇', label: 'Champion', cls: 'place--1' },
+  { rank: '🥈', label: 'Runner-up', cls: 'place--2' },
+  { rank: '🥉', label: 'Third', cls: 'place--3' },
+];
+
+function placeBlock(entry, spec) {
+  const wrap = document.createElement('div');
+  wrap.className = `place ${spec.cls}`;
+  const rank = document.createElement('div');
+  rank.className = 'place__rank';
+  rank.textContent = spec.rank;
+  const body = document.createElement('div');
+  body.className = 'place__body';
+  const label = document.createElement('div');
+  label.className = 'place__label';
+  label.textContent = spec.label;
+  const text = document.createElement('div');
+  text.className = 'place__text';
+  text.textContent = entry.text;
+  body.append(label, text);
+  const credit = creditFor(game, entry);
+  if (credit) {
+    const owner = document.createElement('div');
+    owner.className = 'place__owner';
+    owner.textContent = credit;
+    body.append(owner);
+  }
+  wrap.append(rank, body);
+  return wrap;
+}
 
 const CONFETTI_COLOURS = ['#ffe14d', '#ff6b6b', '#4ecdc4', '#8ea3ff', '#b8f14a'];
 

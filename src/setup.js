@@ -1,6 +1,8 @@
 // Turning free text from the setup screen into entries. Pure functions, no DOM.
 
-import { shuffle, nextPowerOfTwo } from './bracket.js';
+import { shuffle } from './random.js';
+import { nextPowerOfTwo } from './bracket.js';
+import { distinctPeople } from './owners.js';
 
 // A comma is the separator people actually reach for on a phone keyboard; the
 // rest are kept as aliases so older habits still work.
@@ -67,6 +69,16 @@ export function buildEntries({ entriesText, ownerMode, peopleText }, rng = Math.
     return distributeOwners(parsed, parsePeople(peopleText), rng);
   }
   return parsed;
+}
+
+/**
+ * Everyone who can be called on to argue: the whole pool in people-pool mode
+ * (even someone who drew no entries), otherwise whoever owns an entry.
+ */
+export function peopleFor({ ownerMode, peopleText }, entries) {
+  if (ownerMode === 'pool') return parsePeople(peopleText);
+  if (ownerMode === 'entry') return distinctPeople(entries);
+  return [];
 }
 
 /** Shape of the bracket a given entry count will produce, for the preview line. */

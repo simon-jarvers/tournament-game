@@ -24,6 +24,23 @@ and evenly. The split takes the *last* comma on the line, so entry text can cont
 The bracket sits under the current match as you play, so the room can see where the
 tournament stands without leaving the battle.
 
+## Who argues each match
+
+Two ways to run it, chosen at setup.
+
+**Owner sticks.** An entry keeps its owner all the way. Nobody should have to argue
+against themselves, so the first-round draw is built to avoid pairing an owner with their
+own entry. Deeper in the bracket that can become unavoidable — if Ada's two entries meet
+in the semifinal, the match screen stops and asks the room who argues the other side,
+with a chip per person and a Random button. The stand-in is marked on the card and holds
+for that match only; the entry still belongs to Ada on the podium.
+
+**Shuffle each round.** Every match draws a fresh champion. An entry starts with whoever
+it was assigned to, and after that nobody argues the same entry twice while someone else
+is still free — and never both sides of one match. When an entry outlives the guest list
+(four people, five rounds) the least recent champion comes back rather than the game
+stalling. The podium credits whoever argued the entry last.
+
 Keyboard on the match screen: <kbd>1</kbd> / <kbd>2</kbd> (or the arrow keys) pick a
 winner, <kbd>Space</kbd> starts and pauses the timer.
 
@@ -68,7 +85,9 @@ The repository root *is* the site. In **Settings → Pages**, serve from a branc
 | `index.html` | The three screens: setup, match, podium |
 | `styles.css` | Neo-brutalist styling — flat colour, thick borders, hard shadows |
 | `src/bracket.js` | Tournament rules: seeding, byes, progression, podium. No DOM |
+| `src/owners.js` | Who argues what: clash-free draws, stand-ins, rotation. No DOM |
 | `src/setup.js` | Parsing entries, owners and people pools. No DOM |
+| `src/random.js` | Shuffling, with an injectable rng so games can be replayed |
 | `src/ui.js` | Rendering and input handling |
 | `tests/` | Node test-runner tests for the logic modules |
 

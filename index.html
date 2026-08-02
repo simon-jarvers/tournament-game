@@ -44,7 +44,16 @@
         <label for="people">People</label>
         <textarea id="people" name="people" rows="3" spellcheck="false"
           placeholder="Ada, Mo, Yusuf, Kit"></textarea>
-        <p class="note">Entries are shared out randomly and evenly.</p>
+      </div>
+
+      <div class="field field--nested" id="champion-field" hidden>
+        <span class="sublabel">Who argues each match</span>
+        <div class="segmented" role="radiogroup" aria-label="Champion mode">
+          <label><input type="radio" name="champions" value="fixed" checked /><span>Owner sticks</span></label>
+          <label><input type="radio" name="champions" value="rotate" /><span>Shuffle each round</span></label>
+        </div>
+        <p class="note" id="champion-note">The owner argues for their entry all tournament. Nobody has to
+          argue against themselves — the draw avoids it, and a stand-in steps in when the bracket forces it.</p>
       </div>
     </fieldset>
 
@@ -73,37 +82,42 @@
 <!-- ───────────────────────────── MATCH ───────────────────────────── -->
 <section class="screen screen--match" id="screen-match">
   <header class="matchbar">
-    <div class="matchbar__left">
-      <span class="chip chip--round" id="round-label">Round</span>
-      <span class="chip" id="category-label" hidden></span>
-    </div>
-    <div class="matchbar__right">
-      <span class="chip chip--quiet" id="progress-label">Match 1</span>
-      <button type="button" class="chip chip--btn" id="quit-btn" title="Abandon and set up a new game">Quit</button>
-    </div>
+    <span class="chip chip--round" id="round-label">Round</span>
+    <span class="chip chip--category" id="category-label" hidden></span>
+    <span class="chip chip--quiet" id="progress-label">1/1</span>
+    <button type="button" class="chip chip--timer" id="timer-chip" hidden
+      title="Tap to start or pause the pitch timer">
+      <span class="chip__icon" aria-hidden="true">⏱</span>
+      <span id="timer-digits">0:20</span>
+    </button>
+    <button type="button" class="chip chip--btn chip--icon" id="timer-reset" hidden
+      title="Reset the timer" aria-label="Reset timer">↺</button>
+    <button type="button" class="chip chip--btn chip--icon" id="quit-btn"
+      title="Abandon and set up a new game" aria-label="Quit">✕</button>
   </header>
+
+  <div class="standin" id="standin" hidden>
+    <p class="standin__line"><strong id="standin-person">Ada</strong> champions both.
+      Who argues for <strong id="standin-entry">the other one</strong>?</p>
+    <div class="standin__options" id="standin-options"></div>
+  </div>
 
   <div class="arena" id="arena">
     <button type="button" class="card card--a" id="card-0">
-      <span class="card__owner"></span>
-      <span class="card__text"></span>
+      <span class="card__inner">
+        <span class="card__owner"></span>
+        <span class="card__text"></span>
+      </span>
+      <span class="card__stamp">Winner</span>
+    </button>
+    <button type="button" class="card card--b" id="card-1">
+      <span class="card__inner">
+        <span class="card__owner"></span>
+        <span class="card__text"></span>
+      </span>
       <span class="card__stamp">Winner</span>
     </button>
     <div class="versus" aria-hidden="true">VS</div>
-    <button type="button" class="card card--b" id="card-1">
-      <span class="card__owner"></span>
-      <span class="card__text"></span>
-      <span class="card__stamp">Winner</span>
-    </button>
-  </div>
-
-  <div class="timer" id="timer" hidden>
-    <div class="timer__bar"><div class="timer__fill" id="timer-fill"></div></div>
-    <div class="timer__row">
-      <span class="timer__digits" id="timer-digits">0:20</span>
-      <button type="button" class="btn btn--small" id="timer-toggle">Start</button>
-      <button type="button" class="btn btn--small btn--ghost" id="timer-reset">Reset</button>
-    </div>
   </div>
 
   <p class="footnote">Tap the card that wins. <span class="kbd-hint">Keys: <kbd>1</kbd>/<kbd>2</kbd> pick · <kbd>Space</kbd> timer</span></p>

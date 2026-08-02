@@ -1,19 +1,15 @@
 // Pure tournament logic. No DOM, no globals — so a future networked version
 // can drive the same state machine from a server.
 
+import { shuffle } from './random.js';
+import { FIXED, distinctPeople, arrangeFirstRound } from './owners.js';
+
+export { shuffle };
+
 export function nextPowerOfTwo(n) {
   let p = 1;
   while (p < n) p *= 2;
   return p;
-}
-
-export function shuffle(list, rng = Math.random) {
-  const a = [...list];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 /** Human name for a round, counting back from the final. */
@@ -37,6 +33,7 @@ function makeMatch(id, round, order, ready) {
     decided: false,
     walkover: false,
     thirdPlace: false,
+    owners: null, // who argues each side, decided when the match comes up
     next: null,
     nextSlot: null,
     loserTo: null,
@@ -62,6 +59,7 @@ export function createTournament(config, rng = Math.random) {
     id: `e${i}`,
     text: e.text,
     owner: e.owner || '',
+    ownerHistory: [],
   }));
 
   const count = entries.length;
@@ -102,15 +100,12 @@ export function createTournament(config, rng = Math.random) {
     });
   }
 
-  // Deal entries into round one, with byes on randomly chosen matches.
-  const half = size / 2;
-  const byeMatches = new Set(
-    shuffle([...Array(half).keys()], rng).slice(0, byes)
-  );
-  let cursor = 0;
+  // Deal entries into round one: byes land at random, and the draw avoids
+  // pairing someone against their own entry where it can.
+  const pairs = arrangeFirstRound(entries, size / 2, byes, rng);
   byRound[0].forEach((match, i) => {
-    match.slots[0] = entries[cursor++].id;
-    match.slots[1] = byeMatches.has(i) ? null : entries[cursor++].id;
+    match.slots[0] = pairs[i][0] ? pairs[i][0].id : null;
+    match.slots[1] = pairs[i][1] ? pairs[i][1].id : null;
   });
 
   // Play order: round by round, with the third-place match slotted in just
@@ -124,6 +119,9 @@ export function createTournament(config, rng = Math.random) {
   const state = {
     category: (config.category || '').trim(),
     timer: config.timer || { enabled: true, seconds: 20 },
+    champions: config.champions === 'rotate' ? 'rotate' : FIXED,
+    people: config.people && config.people.length ? [...config.people] : distinctPeople(entries),
+    roundLoad: null,
     entries,
     size,
     byes,
